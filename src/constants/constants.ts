@@ -18,5 +18,6 @@ export const DTO_VALIDATIONS = {
 
 export const ERROR_MSGS = {
   ARTICLE_NOT_FOUND: 'Article not found',
-  UNAUTHORIZED_AUTHOR: 'You are not the author of this article',
+  UNAUTHORIZED_AUTHOR: 'You are not authorized to perform this action.',
+  COMMENT_NOT_FOUND: 'Comment not found.',
 };
