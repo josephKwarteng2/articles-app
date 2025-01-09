@@ -40,6 +40,8 @@ export class ArticlesService {
     const queryBuilder = this.articlesRepository
       .createQueryBuilder('article')
       .leftJoinAndSelect('article.author', 'author')
+      .leftJoinAndSelect('article.comments', 'comments')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
       .orderBy('article.createdAt', 'DESC');
 
     if (query.tag) {
@@ -72,21 +74,16 @@ export class ArticlesService {
     return { articles, articlesCount };
   }
 
-  async findOne(id: number): Promise<Article> {
-    const article = await this.articlesRepository.findOne({
-      where: { id },
-      relations: ['author'],
-    });
-    if (!article) throw new NotFoundException(ERROR_MSGS.ARTICLE_NOT_FOUND);
-    return article;
+  async findOne(id: string): Promise<Article> {
+    return this.findArticleById(id);
   }
 
   async updateArticle(
-    id: number,
+    id: string,
     updateArticleDto: UpdateArticleDto,
     user: User,
   ): Promise<Article> {
-    const article = await this.findOne(id);
+    const article = await this.findArticleById(id);
     if (article.author.id !== user.id) {
       throw new ForbiddenException(ERROR_MSGS.UNAUTHORIZED_AUTHOR);
     }
@@ -94,12 +91,21 @@ export class ArticlesService {
     return this.articlesRepository.save(article);
   }
 
-  async deleteArticle(id: number, user: User): Promise<void> {
-    const article = await this.findOne(id);
+  async deleteArticle(id: string, user: User): Promise<void> {
+    const article = await this.findArticleById(id);
     if (article.author.id !== user.id) {
-      throw new NotFoundException(ERROR_MSGS.UNAUTHORIZED_AUTHOR);
+      throw new ForbiddenException(ERROR_MSGS.UNAUTHORIZED_AUTHOR);
     }
     await this.articlesRepository.remove(article);
+  }
+
+  private async findArticleById(id: string): Promise<Article> {
+    const article = await this.articlesRepository.findOne({
+      where: { id },
+      relations: ['author'],
+    });
+    if (!article) throw new NotFoundException(ERROR_MSGS.ARTICLE_NOT_FOUND);
+    return article;
   }
 
   private async generateSlug(title: string): Promise<string> {
