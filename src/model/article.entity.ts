@@ -15,7 +15,7 @@ import { Comment } from './comment.entity';
 @Entity()
 export class Article {
   @PrimaryGeneratedColumn('uuid')
-  id: number;
+  id: string;
 
   @Column({ unique: true })
   slug: string;
