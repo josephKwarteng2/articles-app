@@ -69,7 +69,7 @@ export class ArticlesController {
   ) {
     try {
       const { articles, articlesCount } =
-        await this.articlesService.searchArticlesByKeyword(
+        await this.articlesService.searchArticlesByAuthorOrKeyword(
           query,
           limit,
           offset,
