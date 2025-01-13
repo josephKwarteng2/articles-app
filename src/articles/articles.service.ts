@@ -124,6 +124,31 @@ export class ArticlesService {
     return { articles, articlesCount };
   }
 
+  async likeArticle(articleId: string, user: User): Promise<void> {
+    const article = await this.articlesRepository.findOne({
+      where: { id: articleId },
+      relations: ['favoritedBy'],
+    });
+    if (!article.favoritedBy.some((like) => like.id === user.id)) {
+      article.favoritedBy.push(user);
+      article.favoritesCount = article.favoritedBy.length;
+      await this.articlesRepository.save(article);
+    }
+  }
+
+  async unlikeArticle(articleId: string, user: User): Promise<void> {
+    const article = await this.articlesRepository.findOne({
+      where: { id: articleId },
+      relations: ['favoritedBy'],
+    });
+
+    article.favoritedBy = article.favoritedBy.filter(
+      (like) => like.id !== user.id,
+    );
+    article.favoritesCount = article.favoritedBy.length;
+    await this.articlesRepository.save(article);
+  }
+
   private async findArticleById(id: string): Promise<Article> {
     const article = await this.articlesRepository.findOne({
       where: { id },

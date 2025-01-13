@@ -7,6 +7,8 @@ export const TOAST_MSGS = {
   INVALID_CREDENTIALS: 'Invalid credentials',
   ARTICLE_NOT_FOUND: 'Article not found',
   ARTICLE_CREATED: 'Article created successfully',
+  ARTICLE_LIKED: 'Article liked successfully',
+  ARTICLE_UNLIKED: 'Article unliked successfully',
 };
 
 export const DTO_VALIDATIONS = {
