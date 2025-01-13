@@ -72,6 +72,17 @@ export class ArticlesController {
     }
   }
 
+  @Get('user/:userId')
+  async findByUser(@Param('userId') userId: string) {
+    try {
+      const articles = await this.articlesService.findByUser(userId);
+      return { data: { articles } };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.NOT_FOUND);
+    }
+  }
+
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   async update(
