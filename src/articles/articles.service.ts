@@ -78,6 +78,13 @@ export class ArticlesService {
     return this.findArticleById(id);
   }
 
+  async findByUser(userId: string): Promise<Article[]> {
+    return this.articlesRepository.find({
+      where: { author: { id: userId } },
+      relations: ['author'],
+    });
+  }
+
   async updateArticle(
     id: string,
     updateArticleDto: UpdateArticleDto,
