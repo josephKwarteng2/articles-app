@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Article } from 'src/model/article.entity';
-import { Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { CreateArticleDto } from './dto/create-articles.dto';
 import { User } from 'src/model/user.entity';
 import { UpdateArticleDto } from './dto/update-articles.dto';
@@ -104,6 +104,24 @@ export class ArticlesService {
       throw new ForbiddenException(ERROR_MSGS.UNAUTHORIZED_AUTHOR);
     }
     await this.articlesRepository.remove(article);
+  }
+
+  async searchArticlesByAuthorOrKeyword(
+    query: string,
+    limit: number,
+    offset: number,
+  ): Promise<{ articles: Article[]; articlesCount: number }> {
+    const [articles, articlesCount] = await this.articlesRepository
+      .createQueryBuilder('article')
+      .leftJoinAndSelect('article.author', 'author')
+      .where(
+        'to_tsvector(article.title) @@ plainto_tsquery(:query) OR to_tsvector(author.username) @@ plainto_tsquery(:query)',
+        { query },
+      )
+      .take(limit)
+      .skip(offset)
+      .getManyAndCount();
+    return { articles, articlesCount };
   }
 
   private async findArticleById(id: string): Promise<Article> {
