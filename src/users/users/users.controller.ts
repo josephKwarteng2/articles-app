@@ -4,7 +4,7 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard/jwt-auth.guard';
 import { User } from 'src/model/user.entity';
 import { UpdateProfileDto } from 'src/auth/dto/update-profile.dto';
 
-@Controller('users')
+@Controller('/api/v1/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
