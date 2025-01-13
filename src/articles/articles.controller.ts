@@ -61,6 +61,26 @@ export class ArticlesController {
     }
   }
 
+  @Get('search')
+  async search(
+    @Query('query') query: string,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset?: number,
+  ) {
+    try {
+      const { articles, articlesCount } =
+        await this.articlesService.searchArticlesByKeyword(
+          query,
+          limit,
+          offset,
+        );
+      return { data: { articles, articlesCount } };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     try {
