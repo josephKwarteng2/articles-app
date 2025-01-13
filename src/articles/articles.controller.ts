@@ -18,6 +18,7 @@ import { ArticlesService } from './articles.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard/jwt-auth.guard';
 import { CreateArticleDto } from './dto/create-articles.dto';
 import { UpdateArticleDto } from './dto/update-articles.dto';
+import { TOAST_MSGS } from 'src/constants/constants';
 
 @Controller('/api/v1/articles')
 export class ArticlesController {
@@ -75,6 +76,30 @@ export class ArticlesController {
           offset,
         );
       return { data: { articles, articlesCount } };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/like')
+  async like(@Param('id') id: string, @Req() req) {
+    try {
+      await this.articlesService.likeArticle(id, req.user);
+      return { message: TOAST_MSGS.ARTICLE_LIKED };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/unlike')
+  async unlike(@Param('id') id: string, @Req() req) {
+    try {
+      await this.articlesService.unlikeArticle(id, req.user);
+      return { message: TOAST_MSGS.ARTICLE_UNLIKED };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       throw new HttpException(message, HttpStatus.BAD_REQUEST);
