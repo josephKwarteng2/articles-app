@@ -3,14 +3,15 @@ import { UsersService } from '../users.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard/jwt-auth.guard';
 import { User } from 'src/model/user.entity';
 import { UpdateProfileDto } from 'src/auth/dto/update-profile.dto';
+import { ApiResponse, UserResponse } from 'src/utils/utils';
 
-@Controller('/api/v1/users')
+@Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  async getProfile(@Req() req): Promise<{ data: { user: User } }> {
+  async getProfile(@Req() req): Promise<ApiResponse<UserResponse>> {
     const user = req.user;
     return { data: { user } };
   }
@@ -20,7 +21,7 @@ export class UsersController {
   async updateProfile(
     @Req() req,
     @Body() updateData: UpdateProfileDto,
-  ): Promise<{ data: { user: User } }> {
+  ): Promise<ApiResponse<UserResponse>> {
     const updatedUser = await this.usersService.update(req.user.id, updateData);
     return { data: { user: updatedUser } };
   }
