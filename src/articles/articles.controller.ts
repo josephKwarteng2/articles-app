@@ -35,7 +35,7 @@ export class ArticlesController {
   }
 
   @Get('search')
-  async search(searchQuery: SearchArticlesQueryDto) {
+  async search(@Query() searchQuery: SearchArticlesQueryDto) {
     return this.articlesService.searchArticlesByAuthorOrKeyword(
       searchQuery.query,
       searchQuery.limit,

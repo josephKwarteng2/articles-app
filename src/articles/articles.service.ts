@@ -76,8 +76,8 @@ export class ArticlesService {
 
   public async searchArticlesByAuthorOrKeyword(
     query: string,
-    limit: number,
-    offset: number,
+    limit: number = 20,
+    offset: number = 0,
   ): Promise<{ data: { articles: Article[]; articlesCount: number } }> {
     try {
       const queryBuilder = this.articlesRepository
@@ -94,9 +94,14 @@ export class ArticlesService {
           `${RELATIONS.COMMENTS}.${RELATIONS.AUTHOR}`,
           RELATIONS.COMMENT_AUTHOR,
         )
-        .where('article.title LIKE :query OR article.body LIKE :query', {
-          query: `%${query}%`,
-        })
+        .where(
+          `(
+          LOWER(article.title) LIKE LOWER(:query) OR 
+          LOWER(article.body) LIKE LOWER(:query) OR 
+          LOWER(author.username) LIKE LOWER(:query)
+        )`,
+          { query: `%${query}%` },
+        )
         .orderBy('article.createdAt', 'DESC')
         .skip(offset)
         .take(limit);
