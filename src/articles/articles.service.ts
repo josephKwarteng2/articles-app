@@ -2,15 +2,19 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Article } from 'src/model/article.entity';
 import { Repository } from 'typeorm';
-import { CreateArticleDto } from './dto/create-articles.dto';
+import { ArticleDto } from './dto/create-articles.dto';
 import { User } from 'src/model/user.entity';
 import { UpdateArticleDto } from './dto/update-articles.dto';
-import { ERROR_MSGS } from 'src/constants/constants';
+import { ERROR_MSGS, TOAST_MSGS } from 'src/constants/constants';
 import { ArticleQueryParams } from './interface/types';
+import { RELATIONS } from 'src/constants/constants';
+import { applyFilters } from 'src/utils/utils';
 
 @Injectable()
 export class ArticlesService {
@@ -19,151 +23,205 @@ export class ArticlesService {
     private readonly articlesRepository: Repository<Article>,
   ) {}
 
-  async createArticle(dto: CreateArticleDto, author: User): Promise<Article> {
-    return this.articlesRepository.manager.transaction(async (manager) => {
-      try {
-        const article = this.articlesRepository.create({
-          ...dto,
-          author,
-          slug: await this.generateSlug(dto.title),
-        });
-        return await manager.save(article);
-      } catch (error) {
-        throw error;
-      }
-    });
+  public async createArticle(
+    dto: ArticleDto,
+    author: User,
+  ): Promise<{ data: { article: Article } }> {
+    try {
+      const article = this.articlesRepository.create({ ...dto, author });
+      await this.articlesRepository.save(article);
+      return { data: { article } };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    }
   }
 
-  async findAll(
+  public async findAll(
     query: ArticleQueryParams,
-  ): Promise<{ articles: Article[]; articlesCount: number }> {
+  ): Promise<{ data: { articles: Article[]; articlesCount: number } }> {
+    const { tag, author, favorited, limit = 20, offset = 0 } = query;
     const queryBuilder = this.articlesRepository
-      .createQueryBuilder('article')
-      .leftJoinAndSelect('article.author', 'author')
-      .leftJoinAndSelect('article.comments', 'comments')
-      .leftJoinAndSelect('comments.author', 'commentAuthor')
-      .orderBy('article.createdAt', 'DESC');
+      .createQueryBuilder(RELATIONS.ARTICLE)
+      .leftJoinAndSelect(
+        `${RELATIONS.ARTICLE}.${RELATIONS.AUTHOR}`,
+        RELATIONS.AUTHOR,
+      )
+      .leftJoinAndSelect(
+        `${RELATIONS.ARTICLE}.${RELATIONS.COMMENTS}`,
+        RELATIONS.COMMENTS,
+      )
+      .leftJoinAndSelect(
+        `${RELATIONS.COMMENTS}.${RELATIONS.AUTHOR}`,
+        RELATIONS.COMMENT_AUTHOR,
+      )
+      .orderBy('article.createdAt', 'DESC')
+      .skip(offset)
+      .take(limit);
 
-    if (query.tag) {
-      queryBuilder.andWhere('article.tagList LIKE :tag', {
-        tag: `%${query.tag}%`,
-      });
-    }
+    applyFilters(queryBuilder, {
+      'article.tagList LIKE :tag': tag && `%${tag}%`,
+      'author.username = :username': author,
+    });
 
-    if (query.author) {
-      queryBuilder.andWhere('author.username = :username', {
-        username: query.author,
-      });
-    }
-
-    if (query.favorited) {
+    if (favorited) {
       queryBuilder
         .innerJoin('article.favoritedBy', 'favoritedBy')
-        .andWhere('favoritedBy.username = :username', {
-          username: query.favorited,
-        });
+        .andWhere('favoritedBy.username = :username', { username: favorited });
     }
-
-    const limit = query.limit || 20;
-    const offset = query.offset || 0;
-
-    queryBuilder.take(limit).skip(offset);
 
     const [articles, articlesCount] = await queryBuilder.getManyAndCount();
-
-    return { articles, articlesCount };
+    return { data: { articles, articlesCount } };
   }
 
-  async findOne(id: string): Promise<Article> {
-    return this.findArticleById(id);
-  }
-
-  async findByUser(userId: string): Promise<Article[]> {
-    return this.articlesRepository.find({
-      where: { author: { id: userId } },
-      relations: ['author'],
-    });
-  }
-
-  async updateArticle(
-    id: string,
-    updateArticleDto: UpdateArticleDto,
-    user: User,
-  ): Promise<Article> {
-    const article = await this.findArticleById(id);
-    if (article.author.id !== user.id) {
-      throw new ForbiddenException(ERROR_MSGS.UNAUTHORIZED_AUTHOR);
-    }
-    Object.assign(article, updateArticleDto);
-    return this.articlesRepository.save(article);
-  }
-
-  async deleteArticle(id: string, user: User): Promise<void> {
-    const article = await this.findArticleById(id);
-    if (article.author.id !== user.id) {
-      throw new ForbiddenException(ERROR_MSGS.UNAUTHORIZED_AUTHOR);
-    }
-    await this.articlesRepository.remove(article);
-  }
-
-  async searchArticlesByAuthorOrKeyword(
+  public async searchArticlesByAuthorOrKeyword(
     query: string,
     limit: number,
     offset: number,
-  ): Promise<{ articles: Article[]; articlesCount: number }> {
-    const [articles, articlesCount] = await this.articlesRepository
-      .createQueryBuilder('article')
-      .leftJoinAndSelect('article.author', 'author')
-      .where(
-        'to_tsvector(article.title) @@ plainto_tsquery(:query) OR to_tsvector(author.username) @@ plainto_tsquery(:query)',
-        { query },
-      )
-      .take(limit)
-      .skip(offset)
-      .getManyAndCount();
-    return { articles, articlesCount };
-  }
+  ): Promise<{ data: { articles: Article[]; articlesCount: number } }> {
+    try {
+      const queryBuilder = this.articlesRepository
+        .createQueryBuilder(RELATIONS.ARTICLE)
+        .leftJoinAndSelect(
+          `${RELATIONS.ARTICLE}.${RELATIONS.AUTHOR}`,
+          RELATIONS.AUTHOR,
+        )
+        .leftJoinAndSelect(
+          `${RELATIONS.ARTICLE}.${RELATIONS.COMMENTS}`,
+          RELATIONS.COMMENTS,
+        )
+        .leftJoinAndSelect(
+          `${RELATIONS.COMMENTS}.${RELATIONS.AUTHOR}`,
+          RELATIONS.COMMENT_AUTHOR,
+        )
+        .where('article.title LIKE :query OR article.body LIKE :query', {
+          query: `%${query}%`,
+        })
+        .orderBy('article.createdAt', 'DESC')
+        .skip(offset)
+        .take(limit);
 
-  async likeArticle(articleId: string, user: User): Promise<void> {
-    const article = await this.articlesRepository.findOne({
-      where: { id: articleId },
-      relations: ['favoritedBy'],
-    });
-    if (!article.favoritedBy.some((like) => like.id === user.id)) {
-      article.favoritedBy.push(user);
-      article.favoritesCount = article.favoritedBy.length;
-      await this.articlesRepository.save(article);
+      const [articles, articlesCount] = await queryBuilder.getManyAndCount();
+
+      return { data: { articles, articlesCount } };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
     }
   }
 
-  async unlikeArticle(articleId: string, user: User): Promise<void> {
-    const article = await this.articlesRepository.findOne({
-      where: { id: articleId },
-      relations: ['favoritedBy'],
-    });
+  public async likeArticle(
+    articleId: string,
+    user: User,
+  ): Promise<{ message: string }> {
+    try {
+      const article = await this.articlesRepository.findOne({
+        where: { id: articleId },
+        relations: ['favoritedBy'],
+      });
+      if (!article.favoritedBy.some(({ id }) => id === user.id)) {
+        article.favoritedBy.push(user);
+        article.favoritesCount = article.favoritedBy.length;
+        await this.articlesRepository.save(article);
+      }
+      return { message: TOAST_MSGS.ARTICLE_LIKED };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    }
+  }
 
-    article.favoritedBy = article.favoritedBy.filter(
-      (like) => like.id !== user.id,
-    );
-    article.favoritesCount = article.favoritedBy.length;
-    await this.articlesRepository.save(article);
+  public async unlikeArticle(
+    articleId: string,
+    user: User,
+  ): Promise<{ message: string }> {
+    try {
+      const article = await this.articlesRepository.findOne({
+        where: { id: articleId },
+        relations: ['favoritedBy'],
+      });
+
+      article.favoritedBy = article.favoritedBy.filter(
+        ({ id }) => id !== user.id,
+      );
+      article.favoritesCount = article.favoritedBy.length;
+      await this.articlesRepository.save(article);
+      return { message: TOAST_MSGS.ARTICLE_UNLIKED };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  public async findOne(id: string): Promise<{ data: { article: Article } }> {
+    try {
+      const article = await this.articlesRepository.findOne({ where: { id } });
+      if (!article) {
+        throw new NotFoundException(ERROR_MSGS.ARTICLE_NOT_FOUND);
+      }
+      return { data: { article } };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.NOT_FOUND);
+    }
+  }
+
+  public async findByUser(
+    userId: string,
+  ): Promise<{ data: { articles: Article[] } }> {
+    try {
+      const articles = await this.articlesRepository.find({
+        where: { author: { id: userId } },
+        relations: ['author'],
+      });
+      return { data: { articles } };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.NOT_FOUND);
+    }
+  }
+
+  public async updateArticle(
+    id: string,
+    updateArticleDto: UpdateArticleDto,
+    user: User,
+  ): Promise<{ data: { article: Article } }> {
+    try {
+      const article = await this.findArticleById(id);
+      if (article.author.id !== user.id) {
+        throw new ForbiddenException(ERROR_MSGS.UNAUTHORIZED_AUTHOR);
+      }
+      Object.assign(article, updateArticleDto);
+      await this.articlesRepository.save(article);
+      return { data: { article } };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.FORBIDDEN);
+    }
+  }
+
+  public async deleteArticle(
+    id: string,
+    user: User,
+  ): Promise<{ message: string }> {
+    try {
+      const article = await this.findArticleById(id);
+      if (article.author.id !== user.id) {
+        throw new ForbiddenException(ERROR_MSGS.UNAUTHORIZED_AUTHOR);
+      }
+      await this.articlesRepository.remove(article);
+      return { message: 'Article deleted successfully' };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new HttpException(message, HttpStatus.FORBIDDEN);
+    }
   }
 
   private async findArticleById(id: string): Promise<Article> {
-    const article = await this.articlesRepository.findOne({
-      where: { id },
-      relations: ['author'],
-    });
-    if (!article) throw new NotFoundException(ERROR_MSGS.ARTICLE_NOT_FOUND);
+    const article = await this.articlesRepository.findOne({ where: { id } });
+    if (!article) {
+      throw new NotFoundException(ERROR_MSGS.ARTICLE_NOT_FOUND);
+    }
     return article;
-  }
-
-  private async generateSlug(title: string): Promise<string> {
-    const baseSlug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-    const slug = `${baseSlug}-${Date.now()}`;
-    return slug;
   }
 }

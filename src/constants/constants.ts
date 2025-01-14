@@ -23,3 +23,10 @@ export const ERROR_MSGS = {
   UNAUTHORIZED_AUTHOR: 'You are not authorized to perform this action.',
   COMMENT_NOT_FOUND: 'Comment not found.',
 };
+
+export const RELATIONS = {
+  ARTICLE: 'article',
+  COMMENTS: 'comments',
+  AUTHOR: 'author',
+  COMMENT_AUTHOR: 'comment.author',
+};
