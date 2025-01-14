@@ -5,7 +5,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { HttpExceptionFilter } from 'src/common/filters/http-exception.filter';
 
-@Controller('/api/v1/auth')
+@Controller('auth')
 @UseFilters(HttpExceptionFilter)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -14,11 +14,7 @@ export class AuthController {
   async register(
     @Body() reqBody: RegisterDto,
   ): Promise<{ data: { user: User } }> {
-    return this.authService.register(
-      reqBody.email,
-      reqBody.username,
-      reqBody.password,
-    );
+    return this.authService.register(reqBody);
   }
 
   @Post('login')
