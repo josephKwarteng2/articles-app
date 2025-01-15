@@ -1,9 +1,8 @@
 import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
-import { DTO_VALIDATIONS } from 'src/constants/constants';
 
 export class UpdateProfileDto {
   @IsOptional()
-  @IsEmail({}, { message: DTO_VALIDATIONS.INVALID_EMAIL_FORMAT })
+  @IsEmail()
   email?: string;
 
   @IsOptional()
