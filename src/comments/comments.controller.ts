@@ -11,12 +11,9 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard/jwt-auth.guard';
 import { CommentsService } from './comments.service';
-import {
-  CreateCommentsDto,
-  UpdateCommentsDto,
-} from './dto/create-comments.dto';
+import { CommentsDto } from './dto/create-comments.dto';
 
-@Controller('/api/v1/articles/:articleId/comments')
+@Controller('articles/:articleId/comments')
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
@@ -24,7 +21,7 @@ export class CommentsController {
   @Post()
   async create(
     @Param('articleId') articleId: string,
-    @Body() createCommentDto: CreateCommentsDto,
+    @Body() createCommentDto: CommentsDto,
     @Req() req,
   ) {
     return this.commentsService.createComment(
@@ -43,7 +40,7 @@ export class CommentsController {
   @Patch(':commentId')
   async update(
     @Param('commentId') commentId: string,
-    @Body() updateCommentDto: UpdateCommentsDto,
+    @Body() updateCommentDto: CommentsDto,
     @Req() req,
   ) {
     return this.commentsService.updateComment(
