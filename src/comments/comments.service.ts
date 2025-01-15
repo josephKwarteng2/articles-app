@@ -9,10 +9,7 @@ import { Comment } from 'src/model/comment.entity';
 import { Article } from 'src/model/article.entity';
 import { User } from 'src/model/user.entity';
 import { ERROR_MSGS } from 'src/constants/constants';
-import {
-  CreateCommentsDto,
-  UpdateCommentsDto,
-} from './dto/create-comments.dto';
+import { CommentsDto } from './dto/create-comments.dto';
 
 @Injectable()
 export class CommentsService {
@@ -31,9 +28,9 @@ export class CommentsService {
     return article;
   }
 
-  async createComment(
+  public async createComment(
     articleId: string,
-    dto: CreateCommentsDto,
+    dto: CommentsDto,
     author: User,
   ): Promise<Comment> {
     const article = await this.findArticleById(articleId);
@@ -47,7 +44,7 @@ export class CommentsService {
     return this.commentsRepository.save(comment);
   }
 
-  async findCommentsByArticle(articleId: string): Promise<Comment[]> {
+  public async findCommentsByArticle(articleId: string): Promise<Comment[]> {
     await this.findArticleById(articleId);
 
     return this.commentsRepository.find({
@@ -57,9 +54,9 @@ export class CommentsService {
     });
   }
 
-  async updateComment(
+  public async updateComment(
     commentId: string,
-    dto: UpdateCommentsDto,
+    dto: CommentsDto,
     user: User,
   ): Promise<Comment> {
     const comment = await this.commentsRepository.findOne({
@@ -79,7 +76,7 @@ export class CommentsService {
     return this.commentsRepository.save(comment);
   }
 
-  async deleteComment(commentId: string, user: User): Promise<void> {
+  public async deleteComment(commentId: string, user: User): Promise<void> {
     const comment = await this.commentsRepository.findOne({
       where: { id: commentId },
       relations: ['author'],
