@@ -7,33 +7,53 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Article } from 'src/model/article.entity';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ArticleDto } from './dto/create-articles.dto';
 import { User } from 'src/model/user.entity';
 import { UpdateArticleDto } from './dto/update-articles.dto';
 import { ERROR_MSGS, TOAST_MSGS } from 'src/constants/constants';
 import { ArticleQueryParams } from './interface/types';
 import { RELATIONS } from 'src/constants/constants';
-import { applyFilters } from 'src/utils/utils';
+import { applyFilters, generateSlug } from 'src/utils/utils';
 
 @Injectable()
 export class ArticlesService {
   constructor(
     @InjectRepository(Article)
     private readonly articlesRepository: Repository<Article>,
+    private readonly dataSource: DataSource,
   ) {}
 
   public async createArticle(
     dto: ArticleDto,
     author: User,
   ): Promise<{ data: { article: Article } }> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
     try {
-      const article = this.articlesRepository.create({ ...dto, author });
-      await this.articlesRepository.save(article);
+      const slug = generateSlug(dto.title);
+      const existingArticle = await this.articlesRepository.findOne({
+        where: { slug },
+      });
+
+      if (existingArticle) {
+        throw new HttpException(
+          ERROR_MSGS.ARTICLE_ALREADY_EXISTS,
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      const article = this.articlesRepository.create({ ...dto, slug, author });
+      await queryRunner.manager.save(article);
+
+      await queryRunner.commitTransaction();
       return { data: { article } };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
@@ -119,20 +139,30 @@ export class ArticlesService {
     articleId: string,
     user: User,
   ): Promise<{ message: string }> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      const article = await this.articlesRepository.findOne({
+      const article = await queryRunner.manager.findOne(Article, {
         where: { id: articleId },
         relations: ['favoritedBy'],
+        lock: { mode: 'pessimistic_write' },
       });
+
       if (!article.favoritedBy.some(({ id }) => id === user.id)) {
         article.favoritedBy.push(user);
         article.favoritesCount = article.favoritedBy.length;
-        await this.articlesRepository.save(article);
+        await queryRunner.manager.save(article);
       }
+
+      await queryRunner.commitTransaction();
       return { message: TOAST_MSGS.ARTICLE_LIKED };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
