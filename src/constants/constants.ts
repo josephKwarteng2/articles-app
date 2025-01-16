@@ -22,6 +22,7 @@ export const ERROR_MSGS = {
   ARTICLE_NOT_FOUND: 'Article not found',
   UNAUTHORIZED_AUTHOR: 'You are not authorized to perform this action.',
   COMMENT_NOT_FOUND: 'Comment not found.',
+  ARTICLE_ALREADY_EXISTS: 'Article with this title already exists',
 };
 
 export const RELATIONS = {
