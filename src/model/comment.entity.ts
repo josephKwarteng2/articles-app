@@ -5,6 +5,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Article } from './article.entity';
@@ -28,4 +31,14 @@ export class Comment {
 
   @ManyToOne(() => Article, (article) => article.comments)
   article: Article;
+
+  @ManyToOne(() => Comment, (comment) => comment.replies)
+  parentComment: Comment;
+
+  @OneToMany(() => Comment, (comment) => comment.parentComment)
+  replies: Comment[];
+
+  @ManyToMany(() => User)
+  @JoinTable()
+  likes: User[];
 }
