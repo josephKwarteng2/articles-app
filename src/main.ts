@@ -15,9 +15,6 @@ async function bootstrap() {
         target: false,
         value: false,
       },
-      // transformOptions: {
-      //   enableImplicitConversion: true,
-      // },
     }),
   );
   app.useGlobalFilters(new HttpExceptionFilter());
